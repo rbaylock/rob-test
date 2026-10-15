@@ -356,8 +356,57 @@
     }
   });
 
-  // Save input values silently as you type without destroying DOM focus
+    // Save input values silently as you type without destroying DOM focus
   document.addEventListener("input", function(e) {
     const input = e.target;
     if (!input.matches("input[data-ex]")) return;
-    co
+    const exId = input.getAttribute("data-ex");
+    const setIdx = Number(input.getAttribute("data-set"));
+    const field = input.getAttribute("data-field");
+    const key = "w" + state.week + "_" + exId;
+    if (!state.logs[key]) state.logs[key] = [];
+    if (!state.logs[key][setIdx]) state.logs[key][setIdx] = { weight: "", reps: "", done: false };
+    state.logs[key][setIdx][field] = input.value;
+    saveState();
+    updateBadgeInPlace(exId);
+  });
+
+  document.getElementById("weekSelect").addEventListener("change", function(e) {
+    state.week = Number(e.target.value);
+    saveState();
+    render();
+  });
+
+  document.getElementById("fileInput").addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        state = JSON.parse(ev.target.result);
+        saveState();
+        render();
+      } catch (err) {
+        alert("Invalid backup JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // Pixel 11 Screen Wake Lock & Manifest
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ("wakeLock" in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    } catch (e) {}
+  }
+
+  render();
+  document.getElementById("statusPill").textContent = "● App Ready";
+})();
+</script>
+</body>
+</html>
