@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>V-Taper 8-Week Tracker</title>
+  <title>Aesthetic 3-Day Tracker</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -24,7 +24,7 @@
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .title { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px; color: var(--accent); }
     .week-select { background: var(--card); color: var(--text); border: 1px solid var(--accent); padding: 6px 10px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; }
-    .phase-banner { background: #172554; border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; color: #bae6fd; margin-bottom: 10px; }
+    .phase-banner { background: #172554; border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; color: #bae6fd; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
     .day-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .day-tab { background: var(--card); color: var(--muted); border: 1px solid var(--card-border); padding: 9px 4px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; text-align: center; cursor: pointer; transition: 0.15s; }
     .day-tab.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
@@ -170,4 +170,170 @@ function checkProgression(ex, week, numSets) {
   if (ex.type === "compound") {
     const firstHit = Number(validSets[0].reps) >= ex.maxReps;
     const allAboveMin = validSets.every(s => Number(s.reps) >= ex.minReps);
-    
+    if (firstHit && allAboveMin) {
+      return "🔥 First-Set Trigger Hit! Increase weight by +5–10 lbs next week.";
+    }
+  } else {
+    const allMax = validSets.every(s => Number(s.reps) >= ex.maxReps);
+    if (allMax) {
+      return "⚡ Full-Set Mastery! All sets hit max reps — increase weight next week.";
+    }
+  }
+  return null;
+}
+
+function render() {
+  document.getElementById("weekSelect").value = state.week;
+  const info = WEEK_INFO[state.week];
+  document.getElementById("phaseBanner").innerHTML = `
+    <div><strong>${info.note}</strong><br/>Compounds: ${info.rirComp} • Isolations: ${info.rirIso}</div>
+  `;
+
+  document.querySelectorAll(".day-tab").forEach((t, idx) => {
+    t.classList.toggle("active", idx === state.day);
+  });
+
+  const container = document.getElementById("workoutContainer");
+  container.innerHTML = "";
+  const dayData = PROGRAM[state.day];
+
+  dayData.exercises.forEach(ex => {
+    const numSets = getSetCount(ex, state.week);
+    const logKey = `w${state.week}_${ex.id}`;
+    const prevKey = `w${Math.max(1, state.week - 1)}_${ex.id}`;
+    const currentSets = state.logs[logKey] || [];
+    const prevSets = state.logs[prevKey] || [];
+    const progAlert = checkProgression(ex, state.week, numSets);
+
+    let setsHtml = `
+      <div class="set-header">
+        <div>Set</div>
+        <div>Week ${Math.max(1, state.week - 1)}</div>
+        <div style="text-align:center">Lbs</div>
+        <div style="text-align:center">Reps</div>
+        <div style="text-align:center">✓</div>
+      </div>
+    `;
+
+    for (let i = 0; i < numSets; i++) {
+      const cur = currentSets[i] || { weight: "", reps: "", done: false };
+      const prev = prevSets[i];
+      const prevText = (state.week > 1 && prev && prev.weight && prev.reps)
+        ? `${prev.weight} lb × ${prev.reps}`
+        : `Target ${ex.minReps}-${ex.maxReps}`;
+
+      setsHtml += `
+        <div class="set-row">
+          <div class="set-num">${i + 1}</div>
+          <div class="prev-log">${prevText}</div>
+          <input type="number" inputmode="decimal" placeholder="lbs" value="${cur.weight}"
+            onchange="updateSet('${ex.id}', ${i}, 'weight', this.value)" />
+          <input type="number" inputmode="numeric" placeholder="reps" value="${cur.reps}"
+            onchange="updateSet('${ex.id}', ${i}, 'reps', this.value)" />
+          <button class="done-btn ${cur.done ? 'checked' : ''}"
+            onclick="toggleDone('${ex.id}', ${i}, ${ex.rest})">✓</button>
+        </div>
+      `;
+    }
+
+    const partialsBadge = (state.week >= 6 && state.week <= 7 && ex.type === "isolation")
+      ? `<div class="badge partials">⚡ Final Set: Hit 0 RIR, then perform 4–6 Lengthened Partials!</div>`
+      : "";
+
+    const overloadBadge = progAlert
+      ? `<div class="badge overload">${progAlert}</div>`
+      : "";
+
+    const card = document.createElement("div");
+    card.className = "ex-card";
+    card.innerHTML = `
+      <div class="ex-header">
+        <div class="ex-name">${ex.name}</div>
+        <div class="ex-meta">${numSets} × ${ex.minReps}–${ex.maxReps}</div>
+      </div>
+      <div class="ex-cue">${ex.cue}</div>
+      ${partialsBadge}
+      ${overloadBadge}
+      ${setsHtml}
+    `;
+    container.appendChild(card);
+  });
+}
+
+function updateSet(exId, setIdx, field, val) {
+  const key = `w${state.week}_${exId}`;
+  if (!state.logs[key]) state.logs[key] = [];
+  if (!state.logs[key][setIdx]) state.logs[key][setIdx] = { weight: "", reps: "", done: false };
+  state.logs[key][setIdx][field] = val;
+  saveState();
+  render();
+}
+
+function toggleDone(exId, setIdx, restSec) {
+  const key = `w${state.week}_${exId}`;
+  if (!state.logs[key]) state.logs[key] = [];
+  if (!state.logs[key][setIdx]) state.logs[key][setIdx] = { weight: "", reps: "", done: false };
+  const nextState = !state.logs[key][setIdx].done;
+  state.logs[key][setIdx].done = nextState;
+  saveState();
+  if (nextState) startTimer(restSec);
+  render();
+}
+
+function changeWeek(w) { state.week = Number(w); saveState(); render(); }
+function changeDay(d) { state.day = Number(d); saveState(); render(); }
+
+function startTimer(sec) {
+  clearInterval(timerInterval);
+  remainingSeconds = sec;
+  updateTimerUI();
+  timerInterval = setInterval(() => {
+    remainingSeconds--;
+    updateTimerUI();
+    if (remainingSeconds <= 0) {
+      clearInterval(timerInterval);
+      if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  remainingSeconds = 0;
+  updateTimerUI();
+}
+
+function updateTimerUI() {
+  const m = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
+  const s = String(remainingSeconds % 60).padStart(2, "0");
+  document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `vtaper_mesocycle_backup_w${state.week}.json`;
+  a.click();
+}
+
+function importData() { document.getElementById("fileInput").click(); }
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      state = JSON.parse(ev.target.result);
+      saveState();
+      render();
+    } catch (err) { alert("Invalid backup file."); }
+  };
+  reader.readAsText(file);
+}
+
+render();
+</script>
+</body>
+</html>
