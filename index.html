@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>V-Taper 8-Week Tracker</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding-bottom: 95px; -webkit-tap-highlight-color: transparent; }
+    header { position: sticky; top: 0; z-index: 20; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); padding: 12px 16px; border-bottom: 1px solid var(--card-border); }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .title { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px; color: var(--accent); }
+    .week-select { background: var(--card); color: var(--text); border: 1px solid var(--accent); padding: 6px 10px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; }
+    .phase-banner { background: #172554; border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; color: #bae6fd; margin-bottom: 10px; }
+    .day-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .day-tab { background: var(--card); color: var(--muted); border: 1px solid var(--card-border); padding: 9px 4px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; text-align: center; cursor: pointer; transition: 0.15s; }
+    .day-tab.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
+    main { padding: 12px 16px; max-width: 600px; margin: 0 auto; }
+    .ex-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+    .ex-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+    .ex-name { font-size: 1rem; font-weight: 700; line-height: 1.25; }
+    .ex-meta { font-size: 0.75rem; color: var(--accent); font-weight: 600; white-space: nowrap; background: rgba(56, 189, 248, 0.12); padding: 3px 8px; border-radius: 6px; }
+    .ex-cue { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; line-height: 1.35; }
+    .badge { display: inline-block; font-size: 0.73rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; margin-bottom: 10px; width: 100%; }
+    .badge.overload { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .badge.partials { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .set-header, .set-row { display: grid; grid-template-columns: 34px 1fr 78px 78px 42px; gap: 8px; align-items: center; margin-bottom: 6px; }
+    .set-header { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; font-weight: 700; padding: 0 2px; }
+    .set-num { font-size: 0.85rem; font-weight: 700; color: var(--muted); text-align: center; }
+    .prev-log { font-size: 0.75rem; color: var(--muted); }
+    input[type="number"] { width: 100%; background: #0f172a; border: 1px solid var(--card-border); color: var(--text); padding: 8px 6px; border-radius: 6px; text-align: center; font-size: 0.95rem; font-weight: 600; }
+    input[type="number"]:focus { outline: none; border-color: var(--accent); }
+    .done-btn { width: 38px; height: 36px; border-radius: 8px; border: 1px solid var(--card-border); background: #0f172a; color: var(--muted); font-size: 1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .done-btn.checked { background: var(--success); border-color: var(--success); color: #052e16; }
+    .timer-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #020617; border-top: 2px solid var(--accent); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 30; }
+    .timer-display { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
+    .timer-controls button, .util-bar button { background: var(--card); color: var(--text); border: 1px solid var(--card-border); padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-left: 6px; cursor: pointer; }
+    .util-bar { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="top-bar">
+    <div class="title">⚡ V-TAPER MESOCYCLE</div>
+    <select id="weekSelect" class="week-select" onchange="changeWeek(this.value)">
+      <option value="1">Week 1 • Calibration</option>
+      <option value="2">Week 2 • Base Build</option>
+      <option value="3">Week 3 • Base Build</option>
+      <option value="4">Week 4 • +Volume Bump</option>
+      <option value="5">Week 5 • +Volume Bump</option>
+      <option value="6">Week 6 • Peak Overreach</option>
+      <option value="7">Week 7 • Peak Overreach</option>
+      <option value="8">Week 8 • Deload</option>
+    </select>
+  </div>
+  <div id="phaseBanner" class="phase-banner"></div>
+  <div class="day-tabs">
+    <div class="day-tab active" onclick="changeDay(0)">Day 1: Upper/Quad</div>
+    <div class="day-tab" onclick="changeDay(1)">Day 2: Delt/Post</div>
+    <div class="day-tab" onclick="changeDay(2)">Day 3: Chest/Arms</div>
+  </div>
+</header>
+
+<main>
+  <div id="workoutContainer"></div>
+  <div class="util-bar">
+    <button onclick="exportData()">Export Backup (JSON)</button>
+    <button onclick="importData()">Import Backup</button>
+    <input type="file" id="fileInput" style="display:none" onchange="handleFile(event)" />
+  </div>
+</main>
+
+<div class="timer-bar">
+  <div>
+    <div style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; font-weight:700;">Rest Timer</div>
+    <div id="timerDisplay" class="timer-display">00:00</div>
+  </div>
+  <div class="timer-controls">
+    <button onclick="startTimer(60)">1:00</button>
+    <button onclick="startTimer(90)">1:30</button>
+    <button onclick="startTimer(150)">2:30</button>
+    <button onclick="stopTimer()" style="color:var(--danger);">Reset</button>
+  </div>
+</div>
+
+<script>
+const PROGRAM = [
+  {
+    day: "Day 1",
+    exercises: [
+      { id: "d1_inc_db", name: "Incline Dumbbell Press (30°)", type: "compound", baseSets: 3, minReps: 8, maxReps: 10, rest: 150, bumpSet: false, cue: "Deep 1-sec stretch at outer chest; First-Set Trigger." },
+      { id: "d1_pullup", name: "Weighted Pull-Ups / Wide Pulldown", type: "compound", baseSets: 3, minReps: 8, maxReps: 12, rest: 150, bumpSet: false, cue: "Use straps on heavy sets; drive elbows down to hips." },
+      { id: "d1_squat", name: "Hack Squat or Back Squat", type: "compound", baseSets: 3, minReps: 8, maxReps: 10, rest: 180, bumpSet: false, cue: "Feet lower/shoulder-width to bias outer quad sweep." },
+      { id: "d1_cab_lat", name: "Cable Lateral Raises (Wrist Height)", type: "isolation", baseSets: 4, minReps: 12, maxReps: 15, rest: 75, bumpSet: true, cue: "Pull across body from wrist height; Full-Set Mastery." },
+      { id: "d1_inc_curl", name: "Incline DB or Bayesian Cable Curl", type: "isolation", baseSets: 3, minReps: 10, maxReps: 12, rest: 75, bumpSet: false, cue: "Keep elbows pinned behind torso for long-head stretch." },
+      { id: "d1_oh_tri", name: "Overhead Cable Rope Extension", type: "isolation", baseSets: 3, minReps: 10, maxReps: 15, rest: 75, bumpSet: true, cue: "Pause in deep stretch behind head before locking out." }
+    ]
+  },
+  {
+    day: "Day 2",
+    exercises: [
+      { id: "d2_sh_press", name: "Seated DB or Machine Shoulder Press", type: "compound", baseSets: 3, minReps: 8, maxReps: 10, rest: 150, bumpSet: false, cue: "Stop just short of lockout to keep constant delt tension." },
+      { id: "d2_rdl", name: "Romanian Deadlift (RDL)", type: "compound", baseSets: 3, minReps: 8, maxReps: 10, rest: 180, bumpSet: false, cue: "Use wrist straps; push hips straight back with neutral spine." },
+      { id: "d2_cs_row", name: "Chest-Supported Machine/DB Row", type: "compound", baseSets: 3, minReps: 10, maxReps: 12, rest: 120, bumpSet: false, cue: "Let shoulder blades protract fully at bottom." },
+      { id: "d2_pec_deck", name: "Machine Pec Deck / Cable Fly", type: "isolation", baseSets: 3, minReps: 12, maxReps: 15, rest: 90, bumpSet: true, cue: "1-second pause in deep chest stretch." },
+      { id: "d2_rev_pec", name: "Reverse Pec Deck / Face Pulls", type: "isolation", baseSets: 3, minReps: 15, maxReps: 20, rest: 75, bumpSet: true, cue: "Sweep weight out in wide arc to isolate rear delts." },
+      { id: "d2_leg_raise", name: "Hanging Leg Raise / Cable Crunch", type: "isolation", baseSets: 3, minReps: 12, maxReps: 15, rest: 60, bumpSet: false, cue: "Curl pelvis up toward ribs; avoid swinging." }
+    ]
+  },
+  {
+    day: "Day 3",
+    exercises: [
+      { id: "d3_flat_press", name: "Flat Barbell or Machine Chest Press", type: "compound", baseSets: 3, minReps: 6, maxReps: 8, rest: 180, bumpSet: false, cue: "Heavy mechanical tension; 2-3 sec lowering phase." },
+      { id: "d3_lat_pd", name: "Neutral-Grip Pulldown / Cable Row", type: "compound", baseSets: 3, minReps: 10, maxReps: 12, rest: 120, bumpSet: false, cue: "Drive elbows down and in to target lower lats." },
+      { id: "d3_leg_curl", name: "Seated or Lying Leg Curl", type: "isolation", baseSets: 3, minReps: 10, maxReps: 15, rest: 90, bumpSet: false, cue: "Control eccentric; add 4-5 lengthened partials on last set." },
+      { id: "d3_bss", name: "Bulgarian Split Squat or Leg Press", type: "compound", baseSets: 3, minReps: 10, maxReps: 12, rest: 120, bumpSet: false, cue: "Slight forward torso lean for glute/quad sweep." },
+      { id: "d3_db_lat", name: "Dumbbell Lateral Raises", type: "isolation", baseSets: 4, minReps: 12, maxReps: 15, rest: 60, bumpSet: true, cue: "Raise slightly forward in scapular plane." },
+      { id: "d3_arm_ss", name: "EZ Preacher Curl + Pushdown Superset", type: "isolation", baseSets: 3, minReps: 10, maxReps: 12, rest: 90, bumpSet: true, cue: "Log Curl weight/reps; perform Pushdowns immediately after." }
+    ]
+  }
+];
+
+const WEEK_INFO = {
+  1: { rirComp: "2–3 RIR", rirIso: "2 RIR", note: "Calibration Week: Establish clean baseline logbook weights." },
+  2: { rirComp: "2 RIR", rirIso: "1 RIR (Last 0)", note: "Progression Base: Beat Week 1 by +1-2 reps or +5 lbs." },
+  3: { rirComp: "2 RIR", rirIso: "1 RIR (Last 0)", note: "Progression Base: Hit top of rep range to trigger weight jump." },
+  4: { rirComp: "1–2 RIR", rirIso: "0–1 RIR", note: "Aesthetic Volume Bump: +1 set automatically added to key isolations." },
+  5: { rirComp: "1–2 RIR", rirIso: "0–1 RIR", note: "Aesthetic Volume Bump: Push isolation sets close to failure." },
+  6: { rirComp: "1 RIR", rirIso: "0 RIR + Partials", note: "Peak Overreach: Perform 4-6 lengthened partials after failure on final set." },
+  7: { rirComp: "0–1 RIR", rirIso: "0 RIR + Partials", note: "Peak Overreach: Empty the tank before next week's deload!" },
+  8: { rirComp: "3–4 RIR", rirIso: "3–4 RIR", note: "Strategic Deload: 2 sets per exercise at ~85-90% of Week 7 weight." }
+};
+
+let state = JSON.parse(localStorage.getItem("vtaper_state_v1")) || { week: 1, day: 0, logs: {} };
+let timerInterval = null;
+let remainingSeconds = 0;
+
+function saveState() {
+  localStorage.setItem("vtaper_state_v1", JSON.stringify(state));
+}
+
+function getSetCount(ex, week) {
+  if (week === 8) return 2;
+  if (week >= 4 && week <= 7 && ex.bumpSet) return ex.baseSets + 1;
+  return ex.baseSets;
+}
+
+function checkProgression(ex, week, numSets) {
+  const logKey = `w${week}_${ex.id}`;
+  const sets = state.logs[logKey] || [];
+  if (sets.length < numSets) return null;
+
+  const validSets = sets.slice(0, numSets).filter(s => s && Number(s.reps) > 0);
+  if (validSets.length < numSets) return null;
+
+  if (ex.type === "compound") {
+    const firstHit = Number(validSets[0].reps) >= ex.maxReps;
+    const allAboveMin = validSets.every(s => Number(s.reps) >= ex.minReps);
+    
